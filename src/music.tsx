@@ -4,6 +4,8 @@ import {Image, Text, View, TextInput} from 'react-native';
 import RNFS from 'react-native-fs';
 import CustomButton from './components/button';
 import Styles from './styles';
+import CircularProgress from 'react-native-circular-progress-indicator';
+import RNFetchBlob from 'rn-fetch-blob';
 
 const MusicDownloader = () => {
   const [songName, setSongName] = useState('');
@@ -11,6 +13,7 @@ const MusicDownloader = () => {
   const [isSubmitted, setIsSubmitted] = useState(false);
   const [imgPath, setImgPath] = useState('');
   const [progressPercent, setProgressPercent] = useState(0);
+  const [downloading, setDownloading] = useState(false);
 
   useEffect(() => {
     console.log(imgPath);
@@ -18,16 +21,33 @@ const MusicDownloader = () => {
 
   useEffect(() => {
     console.log('Progress====', progressPercent);
+    progressPercent == 100 && setDownloading(false);
   }, [progressPercent]);
 
+  useEffect(() => {
+    console.log('re-render');
+  }, [downloading]);
+
   const onPressHandler = () => {
-    RNFS.downloadFile({
-      fromUrl: `https://pagalfree.com/download/128-${songName}%20-%20${movieName}%20128%20Kbps.mp3`,
-      toFile: `${RNFS.DownloadDirectoryPath}/${songName}.mp3`,
-      progress: res => {
-        setProgressPercent((res.bytesWritten / res.contentLength) * 100);
-      },
-    });
+    setDownloading(true);
+    RNFetchBlob.config({
+      path: `${RNFS.DownloadDirectoryPath}/${songName}.mp3`,
+    })
+      .fetch(
+        'GET',
+        `https://pagalfree.com/download/128-${songName}%20-%20${movieName}%20128%20Kbps.mp3`,
+        {},
+      )
+      .progress((received, total) => {
+        setProgressPercent((received * 100) / total);
+        console.log('progress---', (received * 100) / total);
+      })
+      .then(res => {
+        setDownloading(false);
+        setProgressPercent(0);
+        console.log('this file is saved to ', res.path());
+      })
+      .catch(res => console.log('error'));
   };
   return (
     <View>
@@ -36,12 +56,14 @@ const MusicDownloader = () => {
         style={Styles.inputStyle}
         onChangeText={text => setMovieName(text)}
         textAlign="center"
+        autoCapitalize="words"
       />
       <TextInput
         placeholder="Enter song name"
         style={Styles.inputStyle}
         onChangeText={text => setSongName(text)}
         textAlign="center"
+        autoCapitalize="words"
       />
       <CustomButton
         title="Submit"
@@ -53,15 +75,26 @@ const MusicDownloader = () => {
         }}
       />
       {isSubmitted && (
-        <>
+        <View style={{alignItems: 'center', flexDirection: 'row'}}>
           <Image
-            style={{height: 400, width: 400}}
+            style={{height: 300, width: 300}}
             source={{
               uri: imgPath,
             }}
           />
           <CustomButton title="download" onPress={onPressHandler} />
-        </>
+        </View>
+      )}
+      {downloading && (
+        <CircularProgress
+          value={progressPercent}
+          radius={40}
+          valueSuffix={'%'}
+          activeStrokeColor="blue"
+          activeStrokeWidth={3}
+          progressValueStyle={{fontWeight: '100'}}
+          inActiveStrokeColor="transparent"
+        />
       )}
     </View>
   );
